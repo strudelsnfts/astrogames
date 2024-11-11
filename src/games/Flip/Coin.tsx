@@ -12,18 +12,20 @@ export { TEXTURE_HEADS, TEXTURE_TAILS }
 function CoinModel() {
   const model = useGLTF(MODEL_COIN)
   const [heads, tails] = useTexture([TEXTURE_HEADS, TEXTURE_TAILS])
+
   return (
     <>
-      <primitive object={model.nodes.Coin}>
-      </primitive>
-      <mesh position-z={.3}>
-        <planeGeometry args={[1.3, 1.3, 1.3]} />
-        <meshStandardMaterial transparent map={heads} />
+      <primitive object={model.nodes.Coin} />
+      {/* Front Face */}
+      <mesh position-z={0.3}>
+        <circleGeometry args={[0.65, 32]} />
+        <meshStandardMaterial map={heads} />
       </mesh>
+      {/* Back Face */}
       <group rotation-y={Math.PI}>
-        <mesh position-z={.3}>
-          <planeGeometry args={[1.3, 1.3, 1.3]} />
-          <meshStandardMaterial transparent map={tails} />
+        <mesh position-z={0.3}>
+          <circleGeometry args={[0.65, 32]} />
+          <meshStandardMaterial map={tails} />
         </mesh>
       </group>
     </>
