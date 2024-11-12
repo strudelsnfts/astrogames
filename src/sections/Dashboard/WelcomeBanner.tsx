@@ -11,6 +11,7 @@ const WelcomeContainer = styled.div`
   gap: 20px;
   width: 100%;
   max-width: 800px;
+  margin: 0 auto; /* Centers the container horizontally */
 `
 
 const Banner = styled.div`
@@ -20,7 +21,7 @@ const Banner = styled.div`
   overflow: hidden;
   position: relative;
   filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.07)) drop-shadow(0 2px 2px rgba(0, 0, 0, 0.06));
-
+  
   & img {
     width: 100%;
     height: 100%;
@@ -34,7 +35,7 @@ const Buttons = styled.div`
   gap: 15px;
   width: 100%;
   max-width: 400px;
-
+  
   & > button {
     border: none;
     border-radius: 10px;
@@ -44,7 +45,7 @@ const Buttons = styled.div`
     color: black;
     cursor: pointer;
     font-size: 16px;
-
+    
     &:hover {
       background: white;
     }

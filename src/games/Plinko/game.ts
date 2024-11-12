@@ -1,3 +1,5 @@
+// Game.ts
+
 import Matter from 'matter-js'
 
 const WIDTH = 700
@@ -6,9 +8,9 @@ const HEIGHT = 700
 // How many plinkos to simulate to find desired result. More is slower but more likely to yield desired result
 const SIMULATIONS = 100
 // Size of the plinko
-export const PLINKO_RAIUS = 9
-export const PEG_RADIUS = 11
-const RESTISTUTION = .4
+export const PLINKO_RAIUS = 13
+export const PEG_RADIUS = 9.5
+const RESTITUTION = 0.41
 const GRAVITY = 1
 // How far from the center plinkos can spawn
 const SPAWN_OFFSET_RANGE = 10
@@ -33,7 +35,6 @@ export interface PlinkoProps {
 
 export class Plinko {
   width = WIDTH
-
   height = HEIGHT
 
   private engine = Matter.Engine.create({
@@ -56,11 +57,7 @@ export class Plinko {
     const secondHalf = [...unique].slice(1)
     const firstHalf = [...secondHalf].reverse()
     const center = [unique[0], unique[0], unique[0]]
-    const buckets = [
-      ...firstHalf,
-      ...center,
-      ...secondHalf,
-    ]
+    const buckets = [...firstHalf, ...center, ...secondHalf]
     const numBuckets = buckets.length
     const bucketWidth = this.width / numBuckets
     const barriers = Array.from({ length: numBuckets + 1 }).map((_, i) => {
@@ -71,19 +68,18 @@ export class Plinko {
         chamfer: { radius: 2 },
       })
     })
-    const sensors = buckets.map(
-      (bucketMultiplier, bucketIndex) => {
-        const x = bucketIndex * bucketWidth + bucketWidth / 2
-        return Matter.Bodies.rectangle(x, this.height - bucketHeight / 2, bucketWidth - barrierWidth, bucketHeight, {
-          isStatic: true,
-          isSensor: true,
-          label: 'Bucket',
-          plugin: {
-            bucketIndex,
-            bucketMultiplier,
-          },
-        })
+    const sensors = buckets.map((bucketMultiplier, bucketIndex) => {
+      const x = bucketIndex * bucketWidth + bucketWidth / 2
+      return Matter.Bodies.rectangle(x, this.height - bucketHeight / 2, bucketWidth - barrierWidth, bucketHeight, {
+        isStatic: true,
+        isSensor: true,
+        label: 'Bucket',
+        plugin: {
+          bucketIndex,
+          bucketMultiplier,
+        },
       })
+    })
 
     return [...sensors, ...barriers]
   }
@@ -91,23 +87,17 @@ export class Plinko {
   private makePlinko = (offsetX: number, index: number) => {
     const x = this.width / 2 + offsetX
     const y = -10
-    return Matter.Bodies.circle(x, y, PLINKO_RAIUS, {
-      restitution: RESTISTUTION,
+    const plinkoBody = Matter.Bodies.circle(x, y, PLINKO_RAIUS, {
+      restitution: RESTITUTION,
       collisionFilter: { group: -6969 },
       label: 'Plinko',
       plugin: { startPositionIndex: index },
     })
-  }
 
-  single() {
-    Matter.Events.off(this.engine, 'collisionStart', this.collisionHandler)
-    Matter.Runner.stop(this.runner)
-    Matter.Events.on(this.engine, 'collisionStart', this.collisionHandler)
-    Matter.Composite.add(
-      this.ballComposite,
-      this.makePlinko(Matter.Common.random(-SPAWN_OFFSET_RANGE, SPAWN_OFFSET_RANGE), 0),
-    )
-    Matter.Runner.run(this.runner, this.engine)
+    // Apply initial angular velocity for spin
+    Matter.Body.setAngularVelocity(plinkoBody, (Math.random() - 0.5) * 0.2)
+
+    return plinkoBody
   }
 
   cleanup() {
@@ -125,37 +115,31 @@ export class Plinko {
 
   constructor(props: PlinkoProps) {
     this.props = props
-    this.startPositions = Array.from({ length: SIMULATIONS }).map((_, i) => Matter.Common.random(-SPAWN_OFFSET_RANGE / 2, SPAWN_OFFSET_RANGE / 2))
+    this.startPositions = Array.from({ length: SIMULATIONS }).map(() =>
+      Matter.Common.random(-SPAWN_OFFSET_RANGE / 2, SPAWN_OFFSET_RANGE / 2),
+    )
 
     const rowSize = this.height / (this.props.rows + 2)
     const pegs = Array.from({ length: this.props.rows })
       .flatMap((_, row, jarr) => {
-        const cols = (1 + row)
+        const cols = 1 + row
         const rowWidth = this.width * (row / (jarr.length - 1))
         const colSpacing = cols === 1 ? 0 : rowWidth / (cols - 1)
-        return Array.from({ length: cols })
-          .map((_, column, arr) => {
-            const x = this.width / 2 - rowWidth / 2 + colSpacing * column
-            const y = rowSize * row + rowSize / 2
-            return Matter.Bodies.circle(x, y, PEG_RADIUS, {
-              isStatic: true,
-              label: 'Peg',
-              plugin: { pegIndex: row * arr.length + column },
-            })
+        return Array.from({ length: cols }).map((_, column, arr) => {
+          const x = this.width / 2 - rowWidth / 2 + colSpacing * column
+          const y = rowSize * row + rowSize / 2
+          return Matter.Bodies.circle(x, y, PEG_RADIUS, {
+            isStatic: true,
+            label: 'Peg',
+            plugin: { pegIndex: row * arr.length + column },
           })
-      }).slice(1)
+        })
+      })
+      .slice(1)
 
+    Matter.Composite.add(this.bucketComposite, this.makeBuckets())
 
-    Matter.Composite.add(
-      this.bucketComposite,
-      this.makeBuckets(),
-    )
-
-    Matter.Composite.add(this.engine.world, [
-      ...pegs,
-      this.ballComposite,
-      this.bucketComposite,
-    ])
+    Matter.Composite.add(this.engine.world, [...pegs, this.ballComposite, this.bucketComposite])
   }
 
   reset() {
@@ -165,7 +149,7 @@ export class Plinko {
   }
 
   simulate(desiredBucketIndex: number) {
-    const results = this.startPositions.map((_, i) => -1)
+    const results = this.startPositions.map(() => -1)
 
     const handleCollision = (plinko: Matter.Body, bucket: Matter.Body) => {
       results[plinko.plugin.startPositionIndex] = bucket.plugin.bucketIndex
@@ -224,10 +208,7 @@ export class Plinko {
     Matter.Runner.stop(this.runner)
     Matter.Composite.clear(this.ballComposite, false)
     Matter.Events.on(this.engine, 'collisionStart', this.collisionHandler)
-    Matter.Composite.add(
-      this.ballComposite,
-      this.makePlinkos(),
-    )
+    Matter.Composite.add(this.ballComposite, this.makePlinkos())
     Matter.Runner.run(this.runner, this.engine)
   }
 
@@ -240,8 +221,6 @@ export class Plinko {
     const candidates = this.simulate(bucket.plugin.bucketIndex)
 
     if (!candidates.length) throw new Error('Failed to simulate')
-
-    console.log(candidates)
 
     const chosen = Matter.Common.choose(candidates)
     // 2. Run simulation with desired outcome
